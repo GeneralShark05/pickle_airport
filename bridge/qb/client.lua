@@ -6,8 +6,8 @@ function GiveKeys(vehicle)
 	TriggerEvent("vehiclekeys:client:SetOwner", QBCore.Functions.GetPlate(vehicle))
 end
 
-function ShowNotification(text)
-	QBCore.Functions.Notify(text)
+function ShowNotification(text, type)
+	QBCore.Functions.Notify(text, type or nil)
 end
 
 function ShowHelpNotification(text)
