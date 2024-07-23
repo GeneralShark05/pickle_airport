@@ -19,6 +19,15 @@ With this resource, you will be able to do the following:
 - Travel to other airports when other pilots aren't available.
 - Pay to board an aircraft through the airport terminal.
 
+## Changes
+- Added notification types for QBCore
+- Changed blips to be better suited
+- Added airport descriptions
+- Total rework of mission rewards
+- Pay per passenger, pay per tonnage, pay per distance options
+- Missions will now start from your closest airport only
+- Fixed issue with teleporting outside aircraft
+
 ## Supported Frameworks
 
 - ESX 1.1+ & Legacy
