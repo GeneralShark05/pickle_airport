@@ -28,25 +28,25 @@ Config.Missions = {
     Blips = {
         PackagePickup = {
             Label = "Pickup Package",
-            ID = 569,
+            ID = 568,
             Color = 5,
             Scale = 0.75
         },
         PackageDropoff = {
             Label = "Drop-off Package",
-            ID = 569,
+            ID = 473,
             Color = 5,
             Scale = 0.75
         },
         PassengerPickup = {
             Label = "Pickup Passengers",
-            ID = 569,
+            ID = 685,
             Color = 5,
             Scale = 0.75
         },
         PassengerDropoff = {
             Label = "Drop-off Passengers",
-            ID = 569,
+            ID = 685,
             Color = 5,
             Scale = 0.75
         },
