@@ -6,8 +6,8 @@ function RegisterCallback(name, cb)
     QBCore.Functions.CreateCallback(name, cb)
 end
 
-function ShowNotification(target, text)
-	TriggerClientEvent(GetCurrentResourceName()..":showNotification", target, text)
+function ShowNotification(target, text, type)
+	TriggerClientEvent(GetCurrentResourceName()..":showNotification", target, text, type or nil)
 end
 
 function Search(source, name)
