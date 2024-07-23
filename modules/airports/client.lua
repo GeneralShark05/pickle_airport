@@ -2,7 +2,7 @@ Interact = false
 
 function StartNPCFlight(from, index)
     ServerCallback("pickle_airport:startNPCFlight", function(result)
-        if (result) then 
+        if (result) then
             local Plane = nil
             local airport_cfg = Config.Airports[from]
             local cfg = Config.Airports[index]
@@ -12,38 +12,49 @@ function StartNPCFlight(from, index)
             Wait(1400)
             local data = Flight
             local start, finish, board = airport_cfg.Locations.Flight, cfg.Locations.Flight, cfg.Locations.Boarding
-            
+
             start, finish = vec3(start.x, start.y, 1700.0), vec3(finish.x, finish.y, 1700.0)
 
-            local heading = GetHeadingFromVector_2d(start.x - finish.x, start.y - finish.y)
-            local ped = CreateNPC(`g_m_m_armboss_01`, start.x, start.y, start.z, 0.0, true, true)
-
-            Plane = CreateVeh(`luxor`, start.x, start.y, start.z, heading - 180.0, false, true)
             SetEntityCoords(ped, start.x, start.y, start.z)
-            TaskWarpPedIntoVehicle(ped, Plane, -1)
-            TaskWarpPedIntoVehicle(PlayerPedId(), Plane, 1)
-        
+
+            Wait(100)
+
+            local heading = GetHeadingFromVector_2d(start.x - finish.x, start.y - finish.y)
+            local pilot = CreateNPC(`IG_Pilot_02`, start.x, start.y, start.z, 0.0, true, true)
+
+            Plane = CreateVeh(`shamal`, start.x, start.y, start.z, heading - 180.0, true, true)
+            while not DoesEntityExist(Plane) do
+                Wait(0)
+            end
+            ControlLandingGear(Plane, 3)
+            FreezeEntityPosition(Plane, true)
+            TaskWarpPedIntoVehicle(pilot, Plane, -1)
+            TaskWarpPedIntoVehicle(PlayerPedId(), Plane, 2)
+            Wait(5000)
+            DoScreenFadeIn(1000)
+
             Wait(100)
             DoScreenFadeIn(1000)
-            
+
             local percent = 0
             while percent < 1.0 do
                 percent = percent + 0.0005
-                local coords = lerp(start, finish, percent)
+                coords = lerp(start, finish, percent)
                 SetEntityCoords(Plane, coords.x, coords.y, coords.z)
                 DisableControlAction(1, 75, 1)
                 Wait(0)
             end
+            DoScreenFadeOut(1500)
+            Wait(2500)
             FreezeEntityPosition(Plane, true)
-            DoScreenFadeOut(1000)
-            Wait(1500)
             DeleteEntity(Plane)
+            DeleteEntity(pilot)
             SetEntityCoords(PlayerPedId(), board.x, board.y, board.z)
-                
+
             Wait(100)
             DoScreenFadeIn(1000)
         else
-            ShowNotification(U.Boarding_broke)
+            ShowNotification(U.Boarding_broke, 'error')
         end
         Interact = false
     end, index)
@@ -51,7 +62,7 @@ end
 
 function JoinActiveFlight(index)
     local airport = Config.Airports[index]
-    if GlobalState.Flights[index] then 
+    if GlobalState.Flights[index] then
         local data = GlobalState.Flights[index]
         CreateThread(function()
             local ped = PlayerPedId()
@@ -62,14 +73,14 @@ function JoinActiveFlight(index)
             local vehicle = NetToVeh(data.net_id)
             local seats = GetVehicleModelNumberOfSeats(GetEntityModel(vehicle)) - 2
             local found = false
-            for i=1, seats do 
-                if IsVehicleSeatFree(vehicle, i) then 
+            for i = 1, seats do
+                if IsVehicleSeatFree(vehicle, i) then
                     TaskWarpPedIntoVehicle(ped, vehicle, i)
                     found = true
                     break
                 end
             end
-            if not found then 
+            if not found then
                 local coords = airport.Locations.Boarding
                 SetEntityCoords(ped, coords.x, coords.y, coords.z - 1.0)
                 Wait(100)
@@ -77,7 +88,7 @@ function JoinActiveFlight(index)
                 ShowNotification(U.Boarding_full)
             else
                 ServerCallback("pickle_airport:purchaseTicket", function(result)
-                    if (not result) then 
+                    if (not result) then
                         local coords = airport.Locations.Boarding
                         SetEntityCoords(ped, coords.x, coords.y, coords.z - 1.0)
                         Wait(100)
@@ -87,7 +98,7 @@ function JoinActiveFlight(index)
                 end, index)
             end
             Interact = false
-        end) 
+        end)
     else
         Interact = false
     end
@@ -96,10 +107,11 @@ end
 function OpenFlightMenu(index, vehicle)
     local menu_id = "airport_flight_menu"
     local options = {}
-    for i=1, #Config.Airports do 
-        if index ~= i then 
-            local _index = i
-            options[#options + 1] = {label = Config.Airports[i].AirportTitle, description = "", index = _index}
+    for k, v in pairs(Config.Airports) do
+        if index ~= k and v.Blips.Boarding then
+            local _index = k
+           dprint(k)
+            options[#options + 1] = { label = Config.Airports[k].AirportTitle, description = Config.Airports[k].AirportDescription or "", index = _index }
         end
     end
     lib.registerMenu({
@@ -112,15 +124,15 @@ function OpenFlightMenu(index, vehicle)
         options = options
     }, function(selected, scrollIndex, args)
         Wait(250)
-        local input = lib.inputDialog('Flight Cost', {'Price'})
-        if not input or tonumber(input[1]) == nil then 
+        local input = lib.inputDialog('Flight Cost', { 'Price' })
+        if not input or tonumber(input[1]) == nil then
             Interact = false
-            return 
+            return
         else
-            local flight_info = {destination = options[selected].index, price = math.ceil(tonumber(input[1])), coords = GetEntityCoords(vehicle), net_id = VehToNet(vehicle)}
+            local flight_info = { destination = options[selected].index, price = math.ceil(tonumber(input[1])), coords = GetEntityCoords(vehicle), net_id = VehToNet(vehicle) }
             ServerCallback("pickle_airport:startFlight", function(result)
-                if (result) then 
-                    ShowNotification("Boarding Players, Takeoff Time: ".. Config.AirportSettings.DepartureTime .. " (s)")
+                if (result) then
+                    ShowNotification("Boarding Players, Takeoff Time: " .. Config.AirportSettings.DepartureTime .. " (s)")
                     FreezeEntityPosition(vehicle, true)
                     Wait(1000 * Config.AirportSettings.DepartureTime)
                     FreezeEntityPosition(vehicle, false)
@@ -157,10 +169,11 @@ function OpenSpawnMenu(index)
 end
 
 function ShowHangarMenu(index)
+   dprint("ShowHangarMenu")
     local menu_id = "airport_hangar_menu"
     local options = {
         {label = "Aircraft Spawner", description = ""},
-        {label = "Mission Selector", description = ""},
+        { label = "Mission Selector", description = "" },
     }
     lib.registerMenu({
         id = menu_id,
@@ -171,7 +184,7 @@ function ShowHangarMenu(index)
         end,
         options = options
     }, function(selected, scrollIndex, args)
-        if (selected == 1) then 
+        if (selected == 1) then
             OpenSpawnMenu(index)
         elseif (selected == 2) then
             OpenMissionMenu(index)
@@ -184,10 +197,10 @@ end
 function OpenNPCMenu(index)
     local menu_id = "airport_npc_menu"
     local options = {}
-    for i=1, #Config.Airports do 
-        if index ~= i then 
-            local _index = i
-            options[#options + 1] = {label = Config.Airports[i].AirportTitle, description = "", index = _index}
+    for k, v in pairs(Config.Airports) do
+        if index ~= k and v.Blips.Boarding then
+            local _index = k
+            options[#options + 1] = { label = Config.Airports[k].AirportTitle, description = Config.Airports[k].AirportDescription or "", index = _index }
         end
     end
     lib.registerMenu({
@@ -206,36 +219,36 @@ end
 
 function InteractAirport(index, key)
     Interact = true
-    if (key == "Boarding") then 
+    if (key == "Boarding") then
         local data = GlobalState.Flights[index]
         if (data) then
             JoinActiveFlight(index)
-        elseif (Config.AirportSettings.NPCFlightCost) then 
+        elseif (Config.AirportSettings.NPCFlightCost) then
             OpenNPCMenu(index)
         else
             ShowHelpNotification(U.Boarding_unavailable)
         end
-    elseif (key == "Flight") then 
-        if not PermissionCheck("flight") then 
+    elseif (key == "Flight") then
+        if not PermissionCheck("flight") then
             Interact = false
-            ShowNotification(U.Flight_denied)
+            ShowNotification(U.Flight_denied, 'error')
             return
         end
         local vehicle = GetCurrentAircraft()
-        if vehicle then 
+        if vehicle then
             local seats = GetVehicleModelNumberOfSeats(GetEntityModel(vehicle)) - 2
             local players = {}
             local found = false
-            for i=1, seats do 
-                if not IsVehicleSeatFree(vehicle, i) then 
+            for i = 1, seats do
+                if not IsVehicleSeatFree(vehicle, i) then
                     local player = NetworkGetPlayerIndexFromPed(GetPedInVehicleSeat(vehicle, i))
-                    if (player) then 
+                    if (player) then
                         found = true
                         players[#players + 1] = GetPlayerServerId(player)
                     end
                 end
             end
-            if found then 
+            if found then
                 TriggerServerEvent("pickle_airport:returnPassengers", index, players)
                 Interact = false
             else
@@ -243,12 +256,12 @@ function InteractAirport(index, key)
             end
         else
             Interact = false
-            --ShowNotification("You are not able to start a flight without being in a plane.")
+            ShowNotification(U.Flight_needPlane, 'error')
         end
-    elseif (key == "Hangar") then 
-        if not PermissionCheck("hangar") then 
+    elseif (key == "Hangar") then
+        if not PermissionCheck("hangar") then
             Interact = false
-            ShowNotification(U.Hangar_denied)
+            ShowNotification(U.Hangar_denied, 'error')
             return
         end
         local vehicle = GetCurrentAircraft()
@@ -256,8 +269,7 @@ function InteractAirport(index, key)
             DeleteEntity(vehicle)
             Interact = false
         else
-            ShowHangarMenu(index)
-        end
+        ShowHangarMenu(index)
     end
 end
 
@@ -267,56 +279,56 @@ function ShowInteract(index, key)
     local pcoords = GetEntityCoords(ped)
     local coords, heading = v3(airport.Locations[key])
     local dist = #(coords - pcoords)
-    if not Interact and dist < 20.0 then 
+    if not Interact and dist < 20.0 then
         if (dist < 1.75) then
-            if (key == "Boarding") then 
+            if (key == "Boarding") then
                 local data = GlobalState.Flights[index]
-                if (data) then 
+                if (data) then
                     local airport = Config.Airports[index]
                     local dest = Config.Airports[data.destination]
                     ShowHelpNotification("~INPUT_CONTEXT~ " .. airport.AirportTitle .. " -> " .. dest.AirportTitle .. " ($" .. data.price .. ")")
-                elseif (Config.AirportSettings.NPCFlightCost) then 
+                elseif (Config.AirportSettings.NPCFlightCost) then
                     ShowHelpNotification(U.Boarding_npc_interact .. Config.AirportSettings.NPCFlightCost .. ".")
                 else
                     ShowHelpNotification(U.Boarding_unavailable)
                 end
                 return true, true
-            elseif (key == "Flight") then 
+            elseif (key == "Flight") then
                 local vehicle = GetCurrentAircraft()
-                if vehicle then 
+                if vehicle then
                     local seats = GetVehicleModelNumberOfSeats(GetEntityModel(vehicle)) - 2
                     local found = false
-                    for i=1, seats do 
-                        if not IsVehicleSeatFree(vehicle, i) then 
+                    for i = 1, seats do
+                        if not IsVehicleSeatFree(vehicle, i) then
                             found = true
                             break
                         end
                     end
-                    if found then 
+                    if found then
                         ShowHelpNotification(U.Flight_return)
                     else
                         ShowHelpNotification(U.Flight_interact)
                     end
-                    return true, true 
+                    return true, true
                 else
                     ShowHelpNotification(U.Flight_reject)
-                    return false, true 
+                    return false, true
                 end
-            elseif (key == "Hangar") then 
+            elseif (key == "Hangar") then
                 local vehicle = GetCurrentAircraft()
-                if vehicle then 
+                if vehicle then
                     ShowHelpNotification(U.Hangar_return)
                 else
                     ShowHelpNotification(U.Hangar_interact)
                 end
-                return true, true 
+                return true, true
             end
         else
-            if (key == "Boarding") then 
+            if (key == "Boarding") then
                 return nil, true
-            elseif (key == "Flight") then 
+            elseif (key == "Flight") then
                 return nil, true
-            elseif (key == "Hangar") then 
+            elseif (key == "Hangar") then
                 return nil, true
             end
         end
@@ -327,7 +339,7 @@ RegisterNetEvent("pickle_airport:returnBoarding", function(index)
     local cfg = Config.Airports[index]
     local coords = cfg.Locations.Flight
     local ped = PlayerPedId()
-    if #(coords - GetEntityCoords(ped)) < 10.0 then 
+    if #(coords - GetEntityCoords(ped)) < 10.0 then
         local coords = cfg.Locations.Boarding
         DoScreenFadeOut(1000)
         Wait(1500)
@@ -338,10 +350,10 @@ RegisterNetEvent("pickle_airport:returnBoarding", function(index)
 end)
 
 CreateThread(function()
-    for i=1, #Config.Airports do 
-        local airport = Config.Airports[i]
-        if airport.Blips then 
-            for k,v in pairs(airport.Blips) do 
+    for airportKey, airport in pairs(Config.Airports) do
+       dprint(airportKey)
+        if airport.Blips then
+            for k, v in pairs(airport.Blips) do
                 local data = v
                 data.Location = v3(airport.Locations[k])
                 CreateBlip(data)
@@ -350,16 +362,16 @@ CreateThread(function()
     end
     while true do
         local wait = 1000
-        for i=1, #Config.Airports do 
-            local airport = Config.Airports[i]
-            for k,v in pairs(airport.Locations) do 
-                local inZone, displayZone = ShowInteract(i, k)
+        for airportKey, _ in pairs(Config.Airports) do
+            local airport = Config.Airports[airportKey]
+            for k, v in pairs(airport.Locations) do
+                local inZone, displayZone = ShowInteract(airportKey, k)
                 if (displayZone) then
                     wait = 0
                     local coords, heading = v3(v)
-                    DrawMarker(2, coords.x, coords.y, coords.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.25, 0.25, 255, 255, 255, 127, false, true)
-                    if (inZone and IsControlJustPressed(1, 51)) then 
-                        InteractAirport(i, k)
+                    DrawMarker(2, coords.x, coords.y, coords.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.75, 0.75, 0.75, 255, 255, 255, 127, true, true)
+                    if (inZone and IsControlJustPressed(1, 51)) then
+                        InteractAirport(airportKey, k)
                     end
                 end
             end
